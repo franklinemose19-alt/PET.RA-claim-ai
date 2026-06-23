@@ -49,7 +49,7 @@ function Nav() {
           to="/login"
           className="font-mono text-xs px-4 py-2 rounded border border-white/15 text-white hover:border-[#E8A33D] hover:text-[#E8A33D] transition"
         >
-          Log in →
+          Log in
         </Link>
       </Container>
     </header>
@@ -67,7 +67,7 @@ function Hero() {
           </h1>
           <p className="mt-6 text-[#8B93A1] text-lg leading-relaxed max-w-md">
             PET.RA connects insurers and their policyholders through one
-            infrastructure layer — AI-guided evidence capture for customers,
+            infrastructure layer, AI-guided evidence capture for customers,
             a verified review dashboard for insurers, nothing in between.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
@@ -81,7 +81,7 @@ function Hero() {
               href="#customers"
               className="px-5 py-3 rounded-lg border border-white/15 text-white text-sm hover:border-white/30 transition"
             >
-              I'm a policyholder
+              I am a policyholder
             </a>
           </div>
         </div>
@@ -196,7 +196,7 @@ function CustomerExplainer() {
         <div className="order-1 md:order-2">
           <Eyebrow>For Policyholders</Eyebrow>
           <h2 className="font-sans text-3xl font-semibold text-white leading-tight">
-            Filing a claim shouldn't feel like a second incident.
+            Filing a claim should not feel like a second incident.
           </h2>
           <p className="mt-4 text-[#8B93A1] leading-relaxed">
             If your insurer uses PET.RA, you already have access. Connect
@@ -249,7 +249,7 @@ function Features() {
       <Container className="py-20">
         <Eyebrow>Infrastructure, Not Guesswork</Eyebrow>
         <h2 className="font-sans text-3xl font-semibold text-white mb-12 max-w-lg">
-          The parts you don't see, working the way they should.
+          The parts you do not see, working the way they should.
         </h2>
         <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6">
           {features.map((f) => (
@@ -271,7 +271,7 @@ function Testimonials() {
         <Eyebrow>What Early Partners Say</Eyebrow>
         <div className="grid md:grid-cols-2 gap-6 mt-8">
           <TestimonialCard
-            quote="Placeholder, swap in a real insurer quote once you have one. Keep it specific: a number, a before and after, not generic praise."
+            quote="Placeholder, swap in a real insurer quote once you have one. Keep it specific, a number, a before and after, not generic praise."
             name="Name, Title"
             org="Company"
           />
@@ -291,7 +291,7 @@ function TestimonialCard({ quote, name, org }) {
     <div className="rounded-lg border border-white/10 bg-[#1A1E25] p-6">
       <p className="text-[#C7CCD4] text-sm leading-relaxed italic">{quote}</p>
       <div className="mt-4 font-mono text-xs text-[#8B93A1]">
-        {name} · {org}
+        {name} - {org}
       </div>
     </div>
   );
@@ -322,7 +322,7 @@ function Footer() {
     <footer>
       <Container className="py-10 flex flex-col sm:flex-row justify-between items-center gap-4">
         <span className="font-mono text-xs text-[#8B93A1]">
-          PET.RA — Proof, Evidence, Trust, Risk, Analysis
+          PET.RA - Proof, Evidence, Trust, Risk, Analysis
         </span>
         <span className="font-mono text-xs text-[#8B93A1]">
           AI-Powered Claims Infrastructure
