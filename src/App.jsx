@@ -1,31 +1,23 @@
-// src/App.tsx
+// src/App.jsx
 //
 // PET.RA Claims AI — Root App Component
 //
 // Sets up routing and wraps everything in AuthProvider. Route guards check
-// `role` from useAuth() — until the insurer dashboard and connect-insurer
-// pages exist, their routes point at placeholder components so nothing
-// throws a missing-import error.
+// `role` from useAuth(). Super Admin dashboard is still a placeholder —
+// build that next so insurers can actually be verified and go live.
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
+import Login from './pages/Login';
+import ConnectInsurer from './pages/customer/ConnectInsurer';
+import CustomerClaimsList from './pages/customer/CustomerClaimsList';
 import StartClaim from './pages/customer/StartClaim';
 import ClaimDetail from './pages/customer/ClaimDetail';
+import CompanyDashboard from './pages/company/CompanyDashboard';
+import ClaimReview from './pages/company/ClaimReview';
 
-// ---------- Placeholder pages (build these next) ----------
-function Login() {
-  return <div className="p-8 text-slate-300">Login page placeholder.</div>;
-}
-function ConnectInsurer() {
-  return <div className="p-8 text-slate-300">Connect Insurer page placeholder.</div>;
-}
-function CustomerClaimsList() {
-  return <div className="p-8 text-slate-300">My Claims list placeholder.</div>;
-}
-function CompanyDashboard() {
-  return <div className="p-8 text-slate-300">Insurance Company dashboard placeholder.</div>;
-}
+// ---------- Placeholder (build next) ----------
 function SuperAdminDashboard() {
   return <div className="p-8 text-slate-300">Super Admin dashboard placeholder.</div>;
 }
@@ -36,13 +28,7 @@ function NotFound() {
 // ---------- Route guard ----------
 // Wraps a page and redirects to /login if not authenticated, or away from
 // pages that don't match the user's role.
-function ProtectedRoute({
-  children,
-  allowedRoles,
-}: {
-  children: React.ReactNode;
-  allowedRoles?: Array<'customer' | 'company_admin' | 'super_admin'>;
-}) {
+function ProtectedRoute({ children, allowedRoles }) {
   const { user, role, loading } = useAuth();
 
   if (loading) {
@@ -129,6 +115,14 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={['company_admin']}>
                   <CompanyDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/company/claims/:claimId"
+              element={
+                <ProtectedRoute allowedRoles={['company_admin']}>
+                  <ClaimReview />
                 </ProtectedRoute>
               }
             />
