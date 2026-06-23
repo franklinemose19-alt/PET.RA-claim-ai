@@ -1,12 +1,6 @@
 // src/context/AuthContext.jsx
 //
 // PET.RA Claims AI — Auth Context
-//
-// Wraps the whole app. Provides: session, user, profile (role + company_id),
-// loading state, and auth actions (signUp, signIn, signOut).
-//
-// Role lives in the `profiles` table, NOT in auth metadata — profiles is the
-// single source of truth and is protected by RLS (see schema file).
 
 import {
   createContext,
@@ -36,8 +30,6 @@ export function AuthProvider({ children }) {
       .single();
 
     if (error) {
-      // Profile row may not exist yet right after signup — the signup flow
-      // is responsible for creating it. Don't throw, just leave profile null.
       console.error('Failed to fetch profile:', error.message);
       setProfile(null);
       return;
@@ -78,19 +70,12 @@ export function AuthProvider({ children }) {
     };
   }, [fetchProfile]);
 
-  /**
-   * Customer signup: creates the auth user, then a matching profiles row
-   * with role='customer'. If profile creation fails after the auth user is
-   * created, we surface that error so the UI can retry rather than silently
-   * leaving a half-registered account.
-   */
   const signUpCustomer = useCallback(async ({ email, password, fullName, phone }) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
 
     const userId = data.user?.id;
     if (!userId) {
-      // Email confirmation required, no session yet.
       return { needsEmailConfirmation: true };
     }
 
@@ -106,11 +91,6 @@ export function AuthProvider({ children }) {
     return { needsEmailConfirmation: false };
   }, [fetchProfile]);
 
-  /**
-   * Company admin signup: creates the auth user, a companies row
-   * (is_verified=false by default), and a profiles row linking the
-   * admin to that company.
-   */
   const signUpCompany = useCallback(async ({ email, password, fullName, companyName }) => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
