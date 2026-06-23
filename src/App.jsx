@@ -3,13 +3,15 @@
 // PET.RA Claims AI — Root App Component
 //
 // Sets up routing and wraps everything in AuthProvider. Route guards check
-// `role` from useAuth(). Super Admin dashboard is still a placeholder —
-// build that next so insurers can actually be verified and go live.
+// `role` from useAuth(). Logged-out visitors hitting "/" see the Landing
+// page directly; logged-in visitors hitting "/" redirect to their role's
+// home. Super Admin dashboard is still a placeholder — build that next so
+// insurers can actually be verified and go live.
 
-import Landing from './pages/Landing';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import ConnectInsurer from './pages/customer/ConnectInsurer';
 import CustomerClaimsList from './pages/customer/CustomerClaimsList';
@@ -47,7 +49,9 @@ function ProtectedRoute({ children, allowedRoles }) {
   return <>{children}</>;
 }
 
-// ---------- Redirects logged-in users to their role's home ----------
+// ---------- Handles "/" ----------
+// Logged-out visitors see the marketing page directly.
+// Logged-in visitors redirect to their role's home.
 function RoleHomeRedirect() {
   const { user, role, loading } = useAuth();
 
@@ -55,7 +59,7 @@ function RoleHomeRedirect() {
     return <div className="min-h-screen flex items-center justify-center text-slate-400">Loading...</div>;
   }
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Landing />;
 
   if (role === 'customer') return <Navigate to="/customer/claims" replace />;
   if (role === 'company_admin') return <Navigate to="/company/dashboard" replace />;
@@ -71,11 +75,10 @@ export default function App() {
         <div className="min-h-screen bg-slate-950">
           <Routes>
             {/* Public */}
-           
             <Route path="/welcome" element={<Landing />} />
             <Route path="/login" element={<Login />} />
 
-            {/* Root redirects based on role */}
+            {/* Root: Landing for logged-out visitors, role-redirect for logged-in */}
             <Route path="/" element={<RoleHomeRedirect />} />
 
             {/* Customer routes */}
