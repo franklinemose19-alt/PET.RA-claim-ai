@@ -1,6 +1,6 @@
 // src/pages/Landing.jsx
 //
-// PET.RA Claims AI — Public Landing Page
+// PET.RA Claims AI - Public Landing Page
 
 import { Link } from 'react-router-dom';
 
@@ -41,9 +41,9 @@ function Nav() {
           <span className="text-[#8B93A1] ml-2 text-xs">CLAIMS AI</span>
         </span>
         <nav className="hidden md:flex items-center gap-8 text-sm text-[#8B93A1]">
-          <a href="#insurers" className="hover:text-white transition">For Insurers</a>
-          <a href="#customers" className="hover:text-white transition">For Policyholders</a>
-          <a href="#how-it-works" className="hover:text-white transition">How it works</a>
+          <Link to="/welcome#insurers" className="hover:text-white transition">For Insurers</Link>
+          <Link to="/welcome#customers" className="hover:text-white transition">For Policyholders</Link>
+          <Link to="/welcome#how-it-works" className="hover:text-white transition">How it works</Link>
         </nav>
         <Link
           to="/login"
@@ -77,12 +77,12 @@ function Hero() {
             >
               Connect your company
             </Link>
-            
-              href="#customers"
+            <Link
+              to="/welcome#customers"
               className="px-5 py-3 rounded-lg border border-white/15 text-white text-sm hover:border-white/30 transition"
             >
               I am a policyholder
-            </a>
+            </Link>
           </div>
         </div>
 
