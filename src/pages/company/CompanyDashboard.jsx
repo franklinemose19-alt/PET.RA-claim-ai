@@ -2,11 +2,12 @@
 //
 // PET.RA Claims AI — Insurance Company Dashboard
 //
-// Claims list with filters + search. Links to ClaimReview.jsx for detail.
-// Only shows claims belonging to the logged-in admin's company (also
-// enforced server-side via RLS, but filtered here too for clean queries).
+// Claims list with filters + search. New claims and status/AI-result
+// changes for this company now arrive in real time via Supabase Realtime,
+// so an adjuster watching the dashboard sees a new claim land without
+// refreshing.
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -34,27 +35,71 @@ export default function CompanyDashboard() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [newClaimPulse, setNewClaimPulse] = useState(false);
 
+  const loadClaims = useCallback(async () => {
+    if (!companyId) return;
+    const { data, error } = await supabase
+      .from('claims')
+      .select(`
+        id, incident_type, status, created_at,
+        profiles(full_name),
+        policies(policy_number),
+        ai_results(risk_score, fraud_flag, manual_review_required)
+      `)
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+
+    if (!error && data) setClaims(data);
+    setLoading(false);
+  }, [companyId]);
+
+  useEffect(() => {
+    loadClaims();
+  }, [loadClaims]);
+
+  // Realtime: new claims, status changes, and AI result updates for this
+  // company refresh the list automatically. We re-fetch on any change
+  // rather than trying to patch individual rows in place, since claims
+  // come with joined data (profiles, policies, ai_results) that a single
+  // changed row wouldn't include.
   useEffect(() => {
     if (!companyId) return;
 
-    async function loadClaims() {
-      const { data, error } = await supabase
-        .from('claims')
-        .select(`
-          id, incident_type, status, created_at,
-          profiles(full_name),
-          policies(policy_number),
-          ai_results(risk_score, fraud_flag, manual_review_required)
-        `)
-        .eq('company_id', companyId)
-        .order('created_at', { ascending: false });
+    const channel = supabase
+      .channel(`company-claims:${companyId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'claims', filter: `company_id=eq.${companyId}` },
+        () => {
+          setNewClaimPulse(true);
+          setTimeout(() => setNewClaimPulse(false), 3000);
+          loadClaims();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'claims', filter: `company_id=eq.${companyId}` },
+        () => {
+          loadClaims();
+        }
+      )
+      .on(
+        // ai_results doesn't have company_id directly, so we can't filter
+        // server-side here — just refresh on any ai_results insert/update
+        // and let loadClaims() re-fetch the correctly scoped set.
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ai_results' },
+        () => {
+          loadClaims();
+        }
+      )
+      .subscribe();
 
-      if (!error && data) setClaims(data);
-      setLoading(false);
-    }
-    loadClaims();
-  }, [companyId]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [companyId, loadClaims]);
 
   const stats = useMemo(() => {
     const today = new Date().toDateString();
@@ -83,7 +128,14 @@ export default function CompanyDashboard() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-semibold text-white mb-6">Claims Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-semibold text-white">Claims Dashboard</h1>
+        {newClaimPulse && (
+          <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 animate-pulse">
+            New claim received
+          </span>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard label="Claims Today" value={stats.claimsToday} />
