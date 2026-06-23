@@ -6,6 +6,7 @@
 // `role` from useAuth(). Super Admin dashboard is still a placeholder —
 // build that next so insurers can actually be verified and go live.
 
+import Landing from './pages/Landing';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -70,6 +71,8 @@ export default function App() {
         <div className="min-h-screen bg-slate-950">
           <Routes>
             {/* Public */}
+           
+            <Route path="/welcome" element={<Landing />} />
             <Route path="/login" element={<Login />} />
 
             {/* Root redirects based on role */}
