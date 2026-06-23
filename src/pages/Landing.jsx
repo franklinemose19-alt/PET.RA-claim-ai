@@ -1,15 +1,6 @@
 // src/pages/Landing.jsx
 //
 // PET.RA Claims AI — Public Landing Page
-//
-// Sequence: insurer pitch first (they onboard, get verified, refer their
-// policyholders) -> customer explainer (what happens once their insurer
-// is on PET.RA) -> how it works (real 4-step sequence, numbered because
-// it genuinely is one) -> features -> testimonial placeholder -> CTA.
-//
-// Design language: forensic/evidence-record aesthetic, not generic SaaS
-// dark mode. Monospace used for claim IDs, timestamps, data — anywhere
-// the copy is standing in for a real case record.
 
 import { Link } from 'react-router-dom';
 
@@ -29,8 +20,6 @@ export default function Landing() {
   );
 }
 
-// ---------- Shared ----------
-
 function Eyebrow({ children }) {
   return (
     <p className="font-mono text-xs tracking-[0.2em] uppercase text-[#E8A33D] mb-3">
@@ -42,8 +31,6 @@ function Eyebrow({ children }) {
 function Container({ children, className = '' }) {
   return <div className={`max-w-6xl mx-auto px-6 ${className}`}>{children}</div>;
 }
-
-// ---------- Nav ----------
 
 function Nav() {
   return (
@@ -69,16 +56,14 @@ function Nav() {
   );
 }
 
-// ---------- Hero ----------
-
 function Hero() {
   return (
     <section className="relative overflow-hidden border-b border-white/5">
       <Container className="py-24 md:py-32 grid md:grid-cols-2 gap-12 items-center">
         <div>
           <Eyebrow>AI-Powered Claims Infrastructure</Eyebrow>
-          <h1 className="font-sans text-4xl md:text-5xl font-semibold leading-[1.1] text-white">
-            Evidence,<br />the moment it happens.
+          <h1 className="font-sans text-4xl md:text-5xl font-semibold leading-tight text-white">
+            Evidence, the moment it happens.
           </h1>
           <p className="mt-6 text-[#8B93A1] text-lg leading-relaxed max-w-md">
             PET.RA connects insurers and their policyholders through one
@@ -88,7 +73,7 @@ function Hero() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               to="/login"
-              className="px-5 py-3 rounded-lg bg-[#E8A33D] text-[#14171C] font-medium text-sm hover:bg-[#f0b660] transition"
+              className="px-5 py-3 rounded-lg bg-[#E8A33D] text-[#14171C] font-medium text-sm hover:bg-amber-400 transition"
             >
               Connect your company
             </Link>
@@ -101,7 +86,6 @@ function Hero() {
           </div>
         </div>
 
-        {/* Signature element: an annotated "evidence record" card */}
         <div className="relative">
           <div className="rounded-xl border border-white/10 bg-[#1A1E25] overflow-hidden shadow-2xl shadow-black/40">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5 font-mono text-xs text-[#8B93A1]">
@@ -109,17 +93,17 @@ function Hero() {
               <span className="text-[#E8A33D]">UNDER REVIEW</span>
             </div>
             <div className="aspect-[4/3] bg-gradient-to-br from-[#23282F] to-[#181B20] relative flex items-center justify-center">
-              <div className="absolute inset-4 border border-dashed border-white/10 rounded" />
+              <div className="absolute inset-4 border border-dashed border-white/10 rounded"></div>
               <svg width="120" height="90" viewBox="0 0 120 90" fill="none" className="opacity-30">
                 <rect x="10" y="30" width="100" height="40" rx="6" stroke="#8B93A1" strokeWidth="2" />
                 <circle cx="35" cy="70" r="8" stroke="#8B93A1" strokeWidth="2" />
                 <circle cx="85" cy="70" r="8" stroke="#8B93A1" strokeWidth="2" />
               </svg>
-              <span className="absolute bottom-3 right-3 font-mono text-[10px] text-white/40">
-                IMG_03 · FRONT · 14:22:09
+              <span className="absolute bottom-3 right-3 font-mono text-xs text-white/40">
+                IMG_03 FRONT 14:22:09
               </span>
             </div>
-            <div className="px-4 py-3 font-mono text-xs space-y-1.5">
+            <div className="px-4 py-3 font-mono text-xs space-y-2">
               <div className="flex justify-between">
                 <span className="text-[#8B93A1]">Risk score</span>
                 <span className="text-[#E8A33D]">62 / 100</span>
@@ -140,12 +124,10 @@ function Hero() {
   );
 }
 
-// ---------- Insurer Pitch ----------
-
 function InsurerPitch() {
   return (
     <section id="insurers" className="border-b border-white/5">
-      <Container className="py-20 grid md:grid-cols-[1fr,1.2fr] gap-12">
+      <Container className="py-20 grid md:grid-cols-2 gap-12">
         <div>
           <Eyebrow>For Insurance Companies</Eyebrow>
           <h2 className="font-sans text-3xl font-semibold text-white leading-tight">
@@ -154,8 +136,7 @@ function InsurerPitch() {
           <p className="mt-4 text-[#8B93A1] leading-relaxed">
             Connect your company to PET.RA once. From then on, every
             policyholder you refer captures evidence the way your adjusters
-            actually need it — angled, timestamped, located — before it ever
-            reaches your dashboard.
+            actually need it, before it ever reaches your dashboard.
           </p>
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
@@ -169,7 +150,7 @@ function InsurerPitch() {
           />
           <PitchCard
             title="AI pre-analysis"
-            body="Risk score, damage severity, and fraud signals arrive with every claim — before your adjuster opens it."
+            body="Risk score, damage severity, and fraud signals arrive with every claim, before your adjuster opens it."
           />
           <PitchCard
             title="You decide, always"
@@ -190,16 +171,14 @@ function PitchCard({ title, body }) {
   );
 }
 
-// ---------- Customer Explainer ----------
-
 function CustomerExplainer() {
   return (
     <section id="customers" className="border-b border-white/5 bg-[#171A20]">
-      <Container className="py-20 grid md:grid-cols-[1.2fr,1fr] gap-12">
+      <Container className="py-20 grid md:grid-cols-2 gap-12">
         <div className="order-2 md:order-1 grid sm:grid-cols-2 gap-4">
           <PitchCard
             title="Connect your policy"
-            body="Search your insurer, enter your policy number, done. They're already on PET.RA — your insurer set this up."
+            body="Search your insurer, enter your policy number, done. They are already on PET.RA, your insurer set this up."
           />
           <PitchCard
             title="Guided capture"
@@ -221,7 +200,7 @@ function CustomerExplainer() {
           </h2>
           <p className="mt-4 text-[#8B93A1] leading-relaxed">
             If your insurer uses PET.RA, you already have access. Connect
-            your policy once — every claim after that takes minutes, not
+            your policy once, every claim after that takes minutes, not
             phone calls.
           </p>
         </div>
@@ -230,13 +209,11 @@ function CustomerExplainer() {
   );
 }
 
-// ---------- How It Works ----------
-
 function HowItWorks() {
   const steps = [
-    { n: '01', title: 'Capture', body: 'AI-guided photo capture at the scene — front, sides, damage close-up, GPS and timestamp attached automatically.' },
-    { n: '02', title: 'Submit', body: 'One tap routes the claim to your insurer\u2019s dashboard instantly, with all evidence attached.' },
-    { n: '03', title: 'Analyze', body: 'AI reviews evidence quality, completeness, and consistency — surfacing a risk score for the adjuster.' },
+    { n: '01', title: 'Capture', body: 'AI-guided photo capture at the scene, front, sides, damage close-up, GPS and timestamp attached automatically.' },
+    { n: '02', title: 'Submit', body: "One tap routes the claim to your insurer's dashboard instantly, with all evidence attached." },
+    { n: '03', title: 'Analyze', body: 'AI reviews evidence quality, completeness, and consistency, surfacing a risk score for the adjuster.' },
     { n: '04', title: 'Decide', body: 'A human adjuster reviews everything and makes the call. PET.RA never decides for them.' },
   ];
 
@@ -259,14 +236,12 @@ function HowItWorks() {
   );
 }
 
-// ---------- Features ----------
-
 function Features() {
   const features = [
-    { title: 'Company data isolation', body: 'Every insurer sees only their own policyholders\u2019 claims. Enforced at the database level, not just the UI.' },
-    { title: 'Real-time delivery', body: 'New claims and status changes appear instantly — no refreshing, no polling your inbox.' },
+    { title: 'Company data isolation', body: "Every insurer sees only their own policyholders' claims. Enforced at the database level, not just the UI." },
+    { title: 'Real-time delivery', body: 'New claims and status changes appear instantly, no refreshing, no polling your inbox.' },
     { title: 'Audit-ready evidence', body: 'Every photo, GPS point, and timestamp is stored exactly as captured, with secure signed access.' },
-    { title: 'Built for both sides', body: 'One ecosystem, two purpose-built dashboards — nothing borrowed from a generic CRM template.' },
+    { title: 'Built for both sides', body: 'One ecosystem, two purpose-built dashboards, nothing borrowed from a generic CRM template.' },
   ];
 
   return (
@@ -289,8 +264,6 @@ function Features() {
   );
 }
 
-// ---------- Testimonials (placeholder) ----------
-
 function Testimonials() {
   return (
     <section className="border-b border-white/5">
@@ -298,12 +271,12 @@ function Testimonials() {
         <Eyebrow>What Early Partners Say</Eyebrow>
         <div className="grid md:grid-cols-2 gap-6 mt-8">
           <TestimonialCard
-            quote="Placeholder — swap in a real insurer quote once you have one. Keep it specific: a number, a before/after, not generic praise."
+            quote="Placeholder, swap in a real insurer quote once you have one. Keep it specific: a number, a before and after, not generic praise."
             name="Name, Title"
             org="Company"
           />
           <TestimonialCard
-            quote="Placeholder — a policyholder quote about how fast/easy filing was works well here once you have real users."
+            quote="Placeholder, a policyholder quote about how fast and easy filing was works well here once you have real users."
             name="Name"
             org="Policyholder"
           />
@@ -316,15 +289,13 @@ function Testimonials() {
 function TestimonialCard({ quote, name, org }) {
   return (
     <div className="rounded-lg border border-white/10 bg-[#1A1E25] p-6">
-      <p className="text-[#C7CCD4] text-sm leading-relaxed italic">"{quote}"</p>
+      <p className="text-[#C7CCD4] text-sm leading-relaxed italic">{quote}</p>
       <div className="mt-4 font-mono text-xs text-[#8B93A1]">
         {name} · {org}
       </div>
     </div>
   );
 }
-
-// ---------- Final CTA ----------
 
 function FinalCTA() {
   return (
@@ -336,7 +307,7 @@ function FinalCTA() {
         <div className="mt-8 flex justify-center gap-3">
           <Link
             to="/login"
-            className="px-6 py-3 rounded-lg bg-[#E8A33D] text-[#14171C] font-medium text-sm hover:bg-[#f0b660] transition"
+            className="px-6 py-3 rounded-lg bg-[#E8A33D] text-[#14171C] font-medium text-sm hover:bg-amber-400 transition"
           >
             Connect your company
           </Link>
@@ -346,14 +317,12 @@ function FinalCTA() {
   );
 }
 
-// ---------- Footer ----------
-
 function Footer() {
   return (
     <footer>
       <Container className="py-10 flex flex-col sm:flex-row justify-between items-center gap-4">
         <span className="font-mono text-xs text-[#8B93A1]">
-          PET.RA — Proof · Evidence · Trust · Risk · Analysis
+          PET.RA — Proof, Evidence, Trust, Risk, Analysis
         </span>
         <span className="font-mono text-xs text-[#8B93A1]">
           AI-Powered Claims Infrastructure
