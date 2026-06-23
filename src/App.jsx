@@ -8,6 +8,7 @@
 // home. Super Admin dashboard is still a placeholder — build that next so
 // insurers can actually be verified and go live.
 
+import AppLayout from './components/AppLayout';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -31,6 +32,7 @@ function NotFound() {
 // ---------- Route guard ----------
 // Wraps a page and redirects to /login if not authenticated, or away from
 // pages that don't match the user's role.
+
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, role, loading } = useAuth();
 
@@ -46,7 +48,7 @@ function ProtectedRoute({ children, allowedRoles }) {
     return <Navigate to="/" replace />;
   }
 
-  return <>{children}</>;
+  return <AppLayout>{children}</AppLayout>;
 }
 
 // ---------- Handles "/" ----------
