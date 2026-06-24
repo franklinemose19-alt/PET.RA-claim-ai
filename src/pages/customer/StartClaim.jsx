@@ -3,11 +3,12 @@
 // PET.RA Claims AI — Claim Submission Flow (Customer)
 //
 // Flow: pick policy -> incident details -> capture/upload photos -> submit.
-// On submit: insert claim row, insert claim_media rows, then trigger
-// /api/analyze-claim. If AI analysis fails, the claim still exists and is
-// just marked for manual review (handled inside analyze-claim.js).
+// Submission is now resilient to partial failure: if some photos upload
+// but one fails mid-way, we don't abandon the claim or duplicate it on
+// retry. The claim row is created once and reused; only the remaining
+// un-uploaded photos are retried.
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, uploadClaimPhoto } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -26,7 +27,7 @@ export default function StartClaim() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState(1); // 1: policy, 2: details, 3: evidence, 4: review
+  const [step, setStep] = useState(1);
   const [policies, setPolicies] = useState([]);
   const [loadingPolicies, setLoadingPolicies] = useState(true);
 
@@ -36,9 +37,15 @@ export default function StartClaim() {
   const [gps, setGps] = useState({ lat: null, lng: null });
   const [gpsError, setGpsError] = useState('');
 
-  const [photos, setPhotos] = useState([]); // [{ file, previewUrl, angleLabel }]
+  const [photos, setPhotos] = useState([]); // [{ file, previewUrl, angleLabel, uploaded }]
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
+
+  // Tracks the claim row once created, so a retry after partial failure
+  // reuses it instead of creating a duplicate claim every time the
+  // customer hits "Submit Claim" again.
+  const claimIdRef = useRef(null);
 
   useEffect(() => {
     async function loadPolicies() {
@@ -75,6 +82,7 @@ export default function StartClaim() {
       file,
       previewUrl: URL.createObjectURL(file),
       angleLabel: SUGGESTED_ANGLES[photos.length + idx] || 'additional',
+      uploaded: false,
     }));
     setPhotos((prev) => [...prev, ...newPhotos]);
   }
@@ -90,6 +98,31 @@ export default function StartClaim() {
     setPhotos((prev) => prev.map((p, i) => (i === index ? { ...p, angleLabel: label } : p)));
   }
 
+  async function ensureClaimExists(policy) {
+    // Reuse the existing claim if this is a retry after partial failure.
+    if (claimIdRef.current) return claimIdRef.current;
+
+    const { data: claim, error: claimError } = await supabase
+      .from('claims')
+      .insert({
+        customer_id: user.id,
+        company_id: policy.company_id,
+        policy_id: policy.id,
+        incident_type: incidentType,
+        incident_description: incidentDescription,
+        incident_gps_lat: gps.lat,
+        incident_gps_lng: gps.lng,
+        incident_timestamp: new Date().toISOString(),
+        device_info: navigator.userAgent,
+      })
+      .select()
+      .single();
+
+    if (claimError) throw claimError;
+    claimIdRef.current = claim.id;
+    return claim.id;
+  }
+
   async function handleSubmit() {
     setSubmitError('');
 
@@ -99,58 +132,57 @@ export default function StartClaim() {
     }
 
     setSubmitting(true);
+    const policy = policies.find((p) => p.id === selectedPolicyId);
+
     try {
-      const policy = policies.find((p) => p.id === selectedPolicyId);
+      const claimId = await ensureClaimExists(policy);
 
-      const { data: claim, error: claimError } = await supabase
-        .from('claims')
-        .insert({
-          customer_id: user.id,
-          company_id: policy.company_id,
-          policy_id: policy.id,
-          incident_type: incidentType,
-          incident_description: incidentDescription,
-          incident_gps_lat: gps.lat,
-          incident_gps_lng: gps.lng,
-          incident_timestamp: new Date().toISOString(),
-          device_info: navigator.userAgent,
-        })
-        .select()
-        .single();
+      const pending = photos.filter((p) => !p.uploaded);
+      setUploadProgress({ done: photos.length - pending.length, total: photos.length });
 
-      if (claimError) throw claimError;
+      for (let i = 0; i < photos.length; i++) {
+        if (photos[i].uploaded) continue;
 
-      for (const photo of photos) {
-        const storagePath = await uploadClaimPhoto(user.id, claim.id, photo.file);
-        const { error: mediaError } = await supabase.from('claim_media').insert({
-          claim_id: claim.id,
-          storage_path: storagePath,
-          media_type: 'photo',
-          angle_label: photo.angleLabel,
-        });
-        if (mediaError) throw mediaError;
+        try {
+          const storagePath = await uploadClaimPhoto(user.id, claimId, photos[i].file);
+          const { error: mediaError } = await supabase.from('claim_media').insert({
+            claim_id: claimId,
+            storage_path: storagePath,
+            media_type: 'photo',
+            angle_label: photos[i].angleLabel,
+          });
+          if (mediaError) throw mediaError;
+
+          // Mark this specific photo as uploaded so a retry skips it.
+          setPhotos((prev) => prev.map((p, idx) => (idx === i ? { ...p, uploaded: true } : p)));
+          setUploadProgress((prog) => ({ ...prog, done: prog.done + 1 }));
+        } catch (photoErr) {
+          console.error(`Photo ${i + 1} failed:`, photoErr);
+          throw new Error(
+            `Upload failed on photo ${i + 1} of ${photos.length} ("${photos[i].angleLabel}"). ` +
+            `Your claim was saved — tap "Submit Claim" again to retry the remaining photos.`
+          );
+        }
       }
 
-      // Fire and don't block navigation — analyze-claim.js handles its own
-      // failure states by writing a manual_review_required row.
+      // All photos uploaded successfully — trigger AI analysis and notify.
       fetch('/api/analyze-claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ claim_id: claim.id }),
+        body: JSON.stringify({ claim_id: claimId }),
       }).catch((err) => console.error('AI analysis trigger failed:', err));
 
       await supabase.from('notifications').insert({
         recipient_id: user.id,
-        claim_id: claim.id,
+        claim_id: claimId,
         title: 'Claim submitted',
         message: `Your ${incidentType} claim has been submitted and is being reviewed.`,
       });
 
-      navigate(`/customer/claims/${claim.id}`);
+      navigate(`/customer/claims/${claimId}`);
     } catch (err) {
       console.error(err);
       setSubmitError(err.message || 'Something went wrong submitting your claim. Please try again.');
-    } finally {
       setSubmitting(false);
     }
   }
@@ -229,7 +261,7 @@ export default function StartClaim() {
           />
 
           <button onClick={captureGps} className="text-sm text-purple-400 underline">
-            {gps.lat ? 'Location captured ✓' : 'Capture current location'}
+            {gps.lat ? 'Location captured' : 'Capture current location'}
           </button>
           {gpsError && <p className="text-amber-400 text-sm">{gpsError}</p>}
 
@@ -283,12 +315,31 @@ export default function StartClaim() {
             <p className="text-slate-400">GPS: <span className="text-white">{gps.lat ? 'Captured' : 'Not captured'}</span></p>
           </div>
 
-          {submitError && <p className="text-red-400 text-sm">{submitError}</p>}
+          {submitting && uploadProgress.total > 0 && (
+            <div>
+              <div className="flex justify-between text-xs text-slate-400 mb-1">
+                <span>Uploading evidence...</span>
+                <span>{uploadProgress.done} of {uploadProgress.total}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all"
+                  style={{ width: `${(uploadProgress.done / uploadProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {submitError && (
+            <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3">
+              <p className="text-red-400 text-sm">{submitError}</p>
+            </div>
+          )}
 
           <NavButtons
             onBack={() => setStep(3)}
             onNext={handleSubmit}
-            nextLabel={submitting ? 'Submitting...' : 'Submit Claim'}
+            nextLabel={submitting ? 'Submitting...' : submitError ? 'Retry Submit' : 'Submit Claim'}
             nextDisabled={submitting}
           />
         </div>
