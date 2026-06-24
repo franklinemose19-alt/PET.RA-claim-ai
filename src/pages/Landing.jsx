@@ -3,7 +3,35 @@
 // PET.RA Claims AI - Public Landing Page
 
 import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
 
+export default function Landing() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.hash) {
+      const el = document.querySelector(location.hash);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [location]);
+
+  return (
+    <div className="bg-[#14171C] text-[#E5E7EB] font-sans antialiased">
+      <Nav />
+      <Hero />
+      <InsurerPitch />
+      <CustomerExplainer />
+      <HowItWorks />
+      <Features />
+      <Testimonials />
+      <FinalCTA />
+      <Footer />
+    </div>
+  );
+}
 export default function Landing() {
   return (
     <div className="bg-[#14171C] text-[#E5E7EB] font-sans antialiased">
