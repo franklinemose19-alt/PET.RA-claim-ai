@@ -3,8 +3,9 @@
 // PET.RA Claims AI — Connect Insurer
 //
 // Customer searches verified insurers, selects one, enters policy number
-// + membership ID, and links the account. Only is_verified=true companies
-// are searchable here (enforced both by RLS and a client-side filter).
+// + membership ID, and links the account. Distinguishes between "no
+// insurers exist yet at all" (platform-level, nothing to search) vs.
+// "your search term matched nothing" (user-level, suggest clearing it).
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -64,7 +65,6 @@ export default function ConnectInsurer() {
       });
 
       if (insertError) {
-        // unique constraint violation = already connected with this exact policy number
         if (insertError.code === '23505') {
           setError('You are already connected to this insurer with this policy number.');
         } else {
@@ -93,6 +93,29 @@ export default function ConnectInsurer() {
     );
   }
 
+  // Platform-level empty state: no verified insurers exist anywhere yet.
+  // Distinct from "your search matched nothing" — this is not the
+  // customer's fault and there's nothing they can do but wait.
+  if (!loadingCompanies && companies.length === 0) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center">
+        <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center text-2xl">
+          🏢
+        </div>
+        <h1 className="text-xl font-semibold text-white mb-2">No insurers yet</h1>
+        <p className="text-slate-400 text-sm leading-relaxed max-w-sm mx-auto">
+          PET.RA doesn't have any verified insurance companies on the platform
+          yet. Once your insurer signs up and is verified, they'll appear here
+          and you'll be able to connect your policy.
+        </p>
+        <p className="text-slate-500 text-xs mt-4">
+          If your insurer is interested in joining PET.RA, point them to{' '}
+          <span className="text-purple-400">/welcome</span> to register.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-md mx-auto px-4 py-8">
       <h1 className="text-2xl font-semibold text-white mb-6">Connect Insurer</h1>
@@ -110,7 +133,20 @@ export default function ConnectInsurer() {
           {loadingCompanies ? (
             <p className="text-slate-400 text-sm">Loading insurers...</p>
           ) : filteredCompanies.length === 0 ? (
-            <p className="text-slate-400 text-sm">No verified insurers match your search.</p>
+            // User-level empty state: insurers exist, but none match this
+            // specific search term. Different message, different fix
+            // (clear the search), unlike the platform-level case above.
+            <div className="text-center py-8">
+              <p className="text-slate-400 text-sm mb-2">
+                No insurers match "{searchTerm}".
+              </p>
+              <button
+                onClick={() => setSearchTerm('')}
+                className="text-purple-400 text-sm underline"
+              >
+                Clear search
+              </button>
+            </div>
           ) : (
             <div className="space-y-2">
               {filteredCompanies.map((c) => (
