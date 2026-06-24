@@ -2,10 +2,8 @@
 //
 // PET.RA Claims AI — Insurance Company Dashboard
 //
-// Claims list with filters + search. New claims and status/AI-result
-// changes for this company now arrive in real time via Supabase Realtime,
-// so an adjuster watching the dashboard sees a new claim land without
-// refreshing.
+// Added: distinct empty state for a brand-new insurer with zero claims
+// at all, separate from "claims exist but none match your filter."
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
@@ -58,11 +56,6 @@ export default function CompanyDashboard() {
     loadClaims();
   }, [loadClaims]);
 
-  // Realtime: new claims, status changes, and AI result updates for this
-  // company refresh the list automatically. We re-fetch on any change
-  // rather than trying to patch individual rows in place, since claims
-  // come with joined data (profiles, policies, ai_results) that a single
-  // changed row wouldn't include.
   useEffect(() => {
     if (!companyId) return;
 
@@ -85,9 +78,6 @@ export default function CompanyDashboard() {
         }
       )
       .on(
-        // ai_results doesn't have company_id directly, so we can't filter
-        // server-side here — just refresh on any ai_results insert/update
-        // and let loadClaims() re-fetch the correctly scoped set.
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ai_results' },
         () => {
@@ -125,6 +115,27 @@ export default function CompanyDashboard() {
 
     return matchesFilter && matchesSearch;
   });
+
+  // Brand-new insurer, zero claims ever received. Distinct from the
+  // filter-mismatch case below — there's nothing wrong, they just
+  // haven't had a customer file yet.
+  if (!loading && claims.length === 0) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-8">
+        <h1 className="text-2xl font-semibold text-white mb-6">Claims Dashboard</h1>
+        <div className="text-center py-20 rounded-xl border border-slate-700 bg-slate-800/30">
+          <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-slate-800 flex items-center justify-center text-2xl">
+            📋
+          </div>
+          <h2 className="text-white font-medium mb-2">No claims yet</h2>
+          <p className="text-slate-400 text-sm max-w-sm mx-auto leading-relaxed">
+            Once your policyholders connect their policy on PET.RA and submit
+            a claim, it will show up here instantly with AI analysis attached.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -170,7 +181,15 @@ export default function CompanyDashboard() {
       {loading ? (
         <p className="text-slate-400 text-sm">Loading claims...</p>
       ) : filteredClaims.length === 0 ? (
-        <p className="text-slate-400 text-sm py-12 text-center">No claims match these filters.</p>
+        <div className="text-center py-12">
+          <p className="text-slate-400 text-sm mb-2">No claims match these filters.</p>
+          <button
+            onClick={() => { setFilter('all'); setSearch(''); }}
+            className="text-purple-400 text-sm underline"
+          >
+            Clear filters
+          </button>
+        </div>
       ) : (
         <div className="rounded-xl border border-slate-700 overflow-hidden">
           <table className="w-full text-sm">
