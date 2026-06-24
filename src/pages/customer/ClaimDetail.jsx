@@ -3,11 +3,11 @@
 // PET.RA Claims AI — Customer Claim Tracking Page
 //
 // Shows claim status, submitted evidence, and AI analysis summary.
-// AI analysis runs async after submission, so on first load (if result isn't
-// ready yet) this polls every few seconds for a short window, then settles
-// into "still being reviewed" messaging rather than polling forever.
+// Now uses Supabase Realtime instead of polling: claim status changes
+// and the AI result landing both update this page live, with no refresh
+// and no fixed timeout giving up after ~40 seconds.
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase, getClaimPhotoUrl } from '../../lib/supabase';
 
@@ -19,9 +19,6 @@ const STATUS_LABELS = {
   closed: { label: 'Closed', color: 'bg-slate-500/20 text-slate-300' },
 };
 
-const POLL_INTERVAL_MS = 4000;
-const POLL_MAX_ATTEMPTS = 10; // ~40 seconds, then stop polling
-
 export default function ClaimDetail() {
   const { claimId } = useParams();
 
@@ -31,9 +28,7 @@ export default function ClaimDetail() {
   const [aiResult, setAiResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const pollCountRef = useRef(0);
-  const pollTimerRef = useRef(null);
+  const [justUpdated, setJustUpdated] = useState(false);
 
   const loadClaim = useCallback(async () => {
     const { data: claimData, error: claimError } = await supabase
@@ -75,29 +70,44 @@ export default function ClaimDetail() {
 
     setAiResult(aiData);
     setLoading(false);
-
-    return aiData;
   }, [claimId]);
 
   useEffect(() => {
     loadClaim();
   }, [loadClaim]);
 
-  // Poll briefly for AI result if not yet available
+  // Realtime: this specific claim's status/notes, and its ai_results row,
+  // update live. No more guessing how long to poll for.
   useEffect(() => {
-    if (aiResult || loading) return;
-    if (pollCountRef.current >= POLL_MAX_ATTEMPTS) return;
+    const channel = supabase
+      .channel(`claim-detail:${claimId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'claims', filter: `id=eq.${claimId}` },
+        () => {
+          pulseUpdated();
+          loadClaim();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ai_results', filter: `claim_id=eq.${claimId}` },
+        () => {
+          pulseUpdated();
+          loadClaim();
+        }
+      )
+      .subscribe();
 
-    pollTimerRef.current = setTimeout(async () => {
-      pollCountRef.current += 1;
-      const result = await loadClaim();
-      if (!result && pollCountRef.current < POLL_MAX_ATTEMPTS) {
-        // loadClaim will trigger this effect again via aiResult staying null
-      }
-    }, POLL_INTERVAL_MS);
+    function pulseUpdated() {
+      setJustUpdated(true);
+      setTimeout(() => setJustUpdated(false), 2500);
+    }
 
-    return () => clearTimeout(pollTimerRef.current);
-  }, [aiResult, loading, loadClaim]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [claimId, loadClaim]);
 
   if (loading) {
     return <div className="px-6 py-12 text-center text-slate-400">Loading claim...</div>;
@@ -113,15 +123,21 @@ export default function ClaimDetail() {
   }
 
   const statusInfo = STATUS_LABELS[claim.status] || STATUS_LABELS.submitted;
-  const stillAnalyzing = !aiResult && pollCountRef.current < POLL_MAX_ATTEMPTS;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-white">Claim Details</h1>
-        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
-          {statusInfo.label}
-        </span>
+        <div className="flex items-center gap-2">
+          {justUpdated && (
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 animate-pulse">
+              Updated
+            </span>
+          )}
+          <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+            {statusInfo.label}
+          </span>
+        </div>
       </div>
 
       <div className="rounded-xl bg-slate-800/50 border border-slate-700 p-4 space-y-2 text-sm">
@@ -155,15 +171,9 @@ export default function ClaimDetail() {
       <div className="rounded-xl bg-gradient-to-br from-blue-950/50 to-purple-950/50 border border-purple-800/30 p-4">
         <h2 className="text-white font-medium mb-3">AI Analysis</h2>
 
-        {stillAnalyzing && (
+        {!aiResult && (
           <p className="text-slate-400 text-sm">
-            Your evidence is being analyzed. This usually takes under a minute.
-          </p>
-        )}
-
-        {!stillAnalyzing && !aiResult && (
-          <p className="text-slate-400 text-sm">
-            Analysis is taking longer than usual — your claim is still submitted and will be reviewed by the insurer.
+            Your evidence is being analyzed. This page will update automatically once it's ready.
           </p>
         )}
 
