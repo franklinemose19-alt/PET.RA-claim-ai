@@ -2,16 +2,16 @@
 //
 // PET.RA Claims AI — Claim Submission Flow (Customer)
 //
-// Flow: pick policy -> incident details -> capture/upload photos -> submit.
-// Submission is now resilient to partial failure: if some photos upload
-// but one fails mid-way, we don't abandon the claim or duplicate it on
-// retry. The claim row is created once and reused; only the remaining
-// un-uploaded photos are retried.
+// Step 3 now offers a real live camera capture experience (CameraCapture
+// component) alongside the existing file-picker fallback, for devices or
+// browsers where camera access isn't available or the customer prefers
+// picking existing photos.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, uploadClaimPhoto } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import CameraCapture from '../../components/CameraCapture';
 
 const INCIDENT_TYPES = [
   { value: 'collision', label: 'Collision' },
@@ -37,14 +37,12 @@ export default function StartClaim() {
   const [gps, setGps] = useState({ lat: null, lng: null });
   const [gpsError, setGpsError] = useState('');
 
-  const [photos, setPhotos] = useState([]); // [{ file, previewUrl, angleLabel, uploaded }]
+  const [photos, setPhotos] = useState([]);
+  const [showCamera, setShowCamera] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [uploadProgress, setUploadProgress] = useState({ done: 0, total: 0 });
 
-  // Tracks the claim row once created, so a retry after partial failure
-  // reuses it instead of creating a duplicate claim every time the
-  // customer hits "Submit Claim" again.
   const claimIdRef = useRef(null);
 
   useEffect(() => {
@@ -87,6 +85,14 @@ export default function StartClaim() {
     setPhotos((prev) => [...prev, ...newPhotos]);
   }
 
+  // Called by CameraCapture each time the customer accepts a captured frame.
+  function handleCameraCapture({ file, angleLabel }) {
+    setPhotos((prev) => [
+      ...prev,
+      { file, previewUrl: URL.createObjectURL(file), angleLabel, uploaded: false },
+    ]);
+  }
+
   function removePhoto(index) {
     setPhotos((prev) => {
       URL.revokeObjectURL(prev[index].previewUrl);
@@ -99,7 +105,6 @@ export default function StartClaim() {
   }
 
   async function ensureClaimExists(policy) {
-    // Reuse the existing claim if this is a retry after partial failure.
     if (claimIdRef.current) return claimIdRef.current;
 
     const { data: claim, error: claimError } = await supabase
@@ -153,7 +158,6 @@ export default function StartClaim() {
           });
           if (mediaError) throw mediaError;
 
-          // Mark this specific photo as uploaded so a retry skips it.
           setPhotos((prev) => prev.map((p, idx) => (idx === i ? { ...p, uploaded: true } : p)));
           setUploadProgress((prog) => ({ ...prog, done: prog.done + 1 }));
         } catch (photoErr) {
@@ -165,7 +169,6 @@ export default function StartClaim() {
         }
       }
 
-      // All photos uploaded successfully — trigger AI analysis and notify.
       fetch('/api/analyze-claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -271,11 +274,30 @@ export default function StartClaim() {
 
       {step === 3 && (
         <div className="space-y-4">
-          <label className="block text-slate-300 text-sm mb-2">Upload evidence photos</label>
+          <label className="block text-slate-300 text-sm mb-2">Capture evidence photos</label>
           <p className="text-slate-500 text-xs mb-2">
             Aim for front, rear, left, right, and a close-up of damage. More angles = faster review.
           </p>
-          <input type="file" accept="image/*" multiple capture="environment" onChange={handleFileSelect} className="text-slate-300" />
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowCamera(true)}
+              className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium"
+            >
+              Open camera
+            </button>
+            <label className="flex-1 py-3 rounded-xl border border-slate-700 text-slate-300 text-sm font-medium text-center cursor-pointer">
+              Upload from device
+              <input type="file" accept="image/*" multiple onChange={handleFileSelect} className="hidden" />
+            </label>
+          </div>
+
+          {showCamera && (
+            <CameraCapture
+              onCapture={handleCameraCapture}
+              onClose={() => setShowCamera(false)}
+            />
+          )}
 
           <div className="grid grid-cols-3 gap-3 mt-4">
             {photos.map((p, idx) => (
