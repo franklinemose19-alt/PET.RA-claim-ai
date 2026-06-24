@@ -4,12 +4,12 @@
 //
 // Live camera preview via getUserMedia, cycling through suggested angles
 // with on-screen prompts, plus cheap pixel-math quality checks (blur via
-// Laplacian-variance approximation, lighting via average brightness) run
-// on each captured frame before accepting it. No ML model — this is
-// intentionally lightweight, real-time, and free to run. True AI judgment
-// on evidence quality/consistency still happens server-side in
-// analyze-claim.js after submission; this component only catches the
-// obvious "this photo is unusable" cases before they ever reach the claim.
+// edge-contrast proxy, lighting via average brightness) run on each
+// captured frame before accepting it. No ML model — intentionally
+// lightweight and free to run. True AI judgment on evidence quality and
+// consistency still happens server-side in analyze-claim.js after
+// submission; this component only catches obviously unusable photos
+// before they reach the claim.
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 
@@ -21,9 +21,9 @@ const ANGLE_PROMPTS = [
   { key: 'damage_closeup', label: 'Close-up of the damage' },
 ];
 
-const BLUR_THRESHOLD = 18; // lower = blurrier; tuned conservatively to avoid false rejects
-const DARK_THRESHOLD = 40; // average brightness 0-255; below this = "too dark"
-const BRIGHT_THRESHOLD = 235; // above this = likely overexposed/glare
+const BLUR_THRESHOLD = 18;
+const DARK_THRESHOLD = 40;
+const BRIGHT_THRESHOLD = 235;
 
 export default function CameraCapture({ onCapture, onClose }) {
   const videoRef = useRef(null);
@@ -32,7 +32,7 @@ export default function CameraCapture({ onCapture, onClose }) {
 
   const [angleIndex, setAngleIndex] = useState(0);
   const [cameraError, setCameraError] = useState('');
-  const [reviewFrame, setReviewFrame] = useState(null); // { dataUrl, blob, quality }
+  const [reviewFrame, setReviewFrame] = useState(null);
   const [capturedAngles, setCapturedAngles] = useState([]);
 
   const currentAngle = ANGLE_PROMPTS[angleIndex];
@@ -72,15 +72,11 @@ export default function CameraCapture({ onCapture, onClose }) {
     };
   }, []);
 
-  // Cheap, no-ML quality check: samples pixel data from the canvas to
-  // estimate brightness (mean luminance) and sharpness (a lightweight
-  // edge-contrast proxy for blur, not a true Laplacian convolution, but
-  // close enough to flag genuinely unusable photos without real CV cost).
   const assessQuality = useCallback((ctx, width, height) => {
     const { data } = ctx.getImageData(0, 0, width, height);
     let sum = 0;
     let edgeSum = 0;
-    const sampleStep = 4; // sample every 4th pixel for speed
+    const sampleStep = 4;
     let sampleCount = 0;
 
     for (let y = 1; y < height - 1; y += sampleStep) {
@@ -89,9 +85,6 @@ export default function CameraCapture({ onCapture, onClose }) {
         const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
         sum += gray;
 
-        // Compare to the pixel one step right and one step down as a
-        // cheap edge/contrast proxy — real edges (in-focus detail) produce
-        // larger differences; blur smooths these out.
         const iRight = (y * width + (x + 1)) * 4;
         const iDown = ((y + 1) * width + x) * 4;
         const grayRight = (data[iRight] + data[iRight + 1] + data[iRight + 2]) / 3;
