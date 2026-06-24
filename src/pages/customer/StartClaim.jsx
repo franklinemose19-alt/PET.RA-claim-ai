@@ -2,10 +2,10 @@
 //
 // PET.RA Claims AI — Claim Submission Flow (Customer)
 //
-// Step 3 now offers a real live camera capture experience (CameraCapture
-// component) alongside the existing file-picker fallback, for devices or
-// browsers where camera access isn't available or the customer prefers
-// picking existing photos.
+// Step 3 offers a real live camera capture experience (CameraCapture
+// component) alongside a file-picker fallback for devices/browsers where
+// camera access isn't available or the customer prefers picking existing
+// photos.
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -85,7 +85,6 @@ export default function StartClaim() {
     setPhotos((prev) => [...prev, ...newPhotos]);
   }
 
-  // Called by CameraCapture each time the customer accepts a captured frame.
   function handleCameraCapture({ file, angleLabel }) {
     setPhotos((prev) => [
       ...prev,
