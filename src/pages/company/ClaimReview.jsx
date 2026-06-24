@@ -3,17 +3,17 @@
 // PET.RA Claims AI — Claim Review (Insurance Company side)
 //
 // Full claim detail for an adjuster: evidence, metadata, AI analysis,
-// and action buttons (Approve / Reject / Request More Info / Add Notes).
-// Status changes here are the only place a claim moves to approved/rejected
-// — this is a deliberate human-in-the-loop checkpoint, never automated.
+// and action buttons. Added: a manual "Re-run AI Analysis" button to
+// cover the case where the original analyze-claim trigger never reached
+// the server (e.g. customer lost signal right after submitting), or
+// when an adjuster wants a fresh pass after new evidence was added.
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { supabase, getClaimPhotoUrl } from '../../lib/supabase';
 
 export default function ClaimReview() {
   const { claimId } = useParams();
-  const navigate = useNavigate();
 
   const [claim, setClaim] = useState(null);
   const [media, setMedia] = useState([]);
@@ -25,12 +25,14 @@ export default function ClaimReview() {
   const [notes, setNotes] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [reanalyzing, setReanalyzing] = useState(false);
+  const [reanalyzeMessage, setReanalyzeMessage] = useState('');
 
   const loadClaim = useCallback(async () => {
     const { data: claimData, error: claimError } = await supabase
       .from('claims')
       .select(`
-        id, incident_type, incident_description, incident_gps_lat, incident_gps_lng,
+        id, customer_id, incident_type, incident_description, incident_gps_lat, incident_gps_lng,
         incident_timestamp, device_info, status, adjuster_notes, created_at,
         profiles(full_name, phone),
         policies(policy_number, membership_id)
@@ -78,6 +80,51 @@ export default function ClaimReview() {
     loadClaim();
   }, [loadClaim]);
 
+  // Realtime: pick up the AI result the moment it lands, whether from the
+  // original submission trigger or a manual re-run below.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`claim-review:${claimId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ai_results', filter: `claim_id=eq.${claimId}` },
+        () => {
+          loadClaim();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [claimId, loadClaim]);
+
+  async function handleReanalyze() {
+    setReanalyzing(true);
+    setReanalyzeMessage('');
+    setError('');
+    try {
+      const resp = await fetch('/api/analyze-claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claim_id: claimId }),
+      });
+
+      if (!resp.ok) {
+        throw new Error('Analysis request failed. Please try again in a moment.');
+      }
+
+      setReanalyzeMessage('Re-analysis complete.');
+      await loadClaim();
+    } catch (err) {
+      console.error(err);
+      setReanalyzeMessage('');
+      setError(err.message || 'Could not re-run analysis. Check your connection and try again.');
+    } finally {
+      setReanalyzing(false);
+    }
+  }
+
   async function updateStatus(newStatus) {
     setUpdatingStatus(true);
     try {
@@ -87,14 +134,13 @@ export default function ClaimReview() {
         .eq('id', claimId);
       if (updateError) throw updateError;
 
-      // Notify the customer
       const messages = {
         approved: 'Your claim has been approved.',
         rejected: 'Your claim has been rejected. Contact your insurer for details.',
         under_review: 'Your insurer has requested more information on your claim.',
         closed: 'Your claim has been closed.',
       };
-      if (claim?.profiles && messages[newStatus]) {
+      if (claim?.customer_id && messages[newStatus]) {
         await supabase.from('notifications').insert({
           recipient_id: claim.customer_id,
           claim_id: claimId,
@@ -194,11 +240,30 @@ export default function ClaimReview() {
       </div>
 
       <div className="rounded-xl bg-gradient-to-br from-blue-950/50 to-purple-950/50 border border-purple-800/30 p-4">
-        <h2 className="text-white font-medium mb-3">AI Analysis</h2>
-        {!aiResult && <p className="text-slate-400 text-sm">Analysis not yet available.</p>}
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-white font-medium">AI Analysis</h2>
+          <button
+            onClick={handleReanalyze}
+            disabled={reanalyzing || media.length === 0}
+            className="text-xs px-3 py-1.5 rounded-lg border border-purple-500/40 text-purple-300 hover:bg-purple-500/10 disabled:opacity-40"
+          >
+            {reanalyzing ? 'Analyzing...' : aiResult ? 'Re-run Analysis' : 'Run Analysis'}
+          </button>
+        </div>
+
+        {reanalyzeMessage && <p className="text-emerald-400 text-xs mb-2">{reanalyzeMessage}</p>}
+
+        {!aiResult && !reanalyzing && (
+          <p className="text-slate-400 text-sm">
+            No analysis on file yet. This can happen if the original analysis never reached our
+            server — use "Run Analysis" above.
+          </p>
+        )}
+
         {aiResult?.manual_review_required && (
           <p className="text-amber-300 text-sm mb-2">⚠ Flagged for manual review — AI could not complete a full analysis.</p>
         )}
+
         {aiResult && (
           <div className="space-y-3 text-sm">
             <div className="flex gap-6">
