@@ -1,8 +1,12 @@
 // src/pages/customer/CustomerClaimsList.jsx
 //
 // PET.RA Claims AI — "My Claims" list (customer home)
+//
+// Added: real error state (was silently indistinguishable from "no claims"
+// before), and Realtime so a status change from the insurer shows up here
+// without navigating away and back.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -19,20 +23,47 @@ export default function CustomerClaimsList() {
   const { user } = useAuth();
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadClaims = useCallback(async () => {
+    const { data, error: fetchError } = await supabase
+      .from('claims')
+      .select('id, incident_type, status, created_at, companies(name)')
+      .eq('customer_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (fetchError) {
+      setError('Could not load your claims. Please try again.');
+      setLoading(false);
+      return;
+    }
+
+    setError('');
+    setClaims(data || []);
+    setLoading(false);
+  }, [user.id]);
 
   useEffect(() => {
-    async function loadClaims() {
-      const { data, error } = await supabase
-        .from('claims')
-        .select('id, incident_type, status, created_at, companies(name)')
-        .eq('customer_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (!error && data) setClaims(data);
-      setLoading(false);
-    }
     loadClaims();
-  }, [user.id]);
+  }, [loadClaims]);
+
+  // Realtime: status changes from the insurer's side reflect here live.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`customer-claims:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'claims', filter: `customer_id=eq.${user.id}` },
+        () => {
+          loadClaims();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user.id, loadClaims]);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -48,6 +79,13 @@ export default function CustomerClaimsList() {
 
       {loading ? (
         <p className="text-slate-400 text-sm">Loading...</p>
+      ) : error ? (
+        <div className="text-center py-12">
+          <p className="text-red-400 text-sm mb-3">{error}</p>
+          <button onClick={loadClaims} className="text-purple-400 text-sm underline">
+            Try again
+          </button>
+        </div>
       ) : claims.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-slate-400 mb-4">You haven't submitted any claims yet.</p>
