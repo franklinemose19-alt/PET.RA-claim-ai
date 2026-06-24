@@ -8,6 +8,7 @@
 // home. Super Admin dashboard is still a placeholder — build that next so
 // insurers can actually be verified and go live.
 
+import SuperAdminDashboard from './pages/admin/SuperAdminDashboard';
 import AppLayout from './components/AppLayout';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -22,9 +23,7 @@ import CompanyDashboard from './pages/company/CompanyDashboard';
 import ClaimReview from './pages/company/ClaimReview';
 
 // ---------- Placeholder (build next) ----------
-function SuperAdminDashboard() {
-  return <div className="p-8 text-slate-300">Super Admin dashboard placeholder.</div>;
-}
+
 function NotFound() {
   return <div className="p-8 text-slate-300">Page not found.</div>;
 }
